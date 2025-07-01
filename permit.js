@@ -67,40 +67,51 @@ export const eip2612Abi = [
   },
 ];
 
-export const poolManagerAbi = [
+// Example ABI for Uniswap V2/V3 style swap router
+export const swapRouterAbi = [
   {
     "inputs": [
-      {
+      { "internalType": "uint256", "name": "amountIn", "type": "uint256" },
+      { "internalType": "uint256", "name": "amountOutMin", "type": "uint256" },
+      { "internalType": "bool", "name": "zeroForOne", "type": "bool" },
+      { 
+        "internalType": "tuple", 
+        "name": "poolKey", 
+        "type": "tuple",
         "components": [
           { "internalType": "address", "name": "currency0", "type": "address" },
           { "internalType": "address", "name": "currency1", "type": "address" },
           { "internalType": "uint24", "name": "fee", "type": "uint24" },
           { "internalType": "int24", "name": "tickSpacing", "type": "int24" },
           { "internalType": "address", "name": "hooks", "type": "address" }
-        ],
-        "internalType": "struct PoolKey",
-        "name": "key",
-        "type": "tuple"
+        ]
       },
-      {
-        "components": [
-          { "internalType": "address", "name": "recipient", "type": "address" },
-          { "internalType": "bool", "name": "zeroForOne", "type": "bool" },
-          { "internalType": "int256", "name": "amountSpecified", "type": "int256" },
-          { "internalType": "uint160", "name": "sqrtPriceLimitX96", "type": "uint160" },
-          { "internalType": "bytes", "name": "data", "type": "bytes" }
-        ],
-        "internalType": "struct IPoolManager.SwapParams",
-        "name": "params",
-        "type": "tuple"
-      }
+      { "internalType": "bytes", "name": "hookData", "type": "bytes" },
+      { "internalType": "address", "name": "receiver", "type": "address" },
+      { "internalType": "uint256", "name": "deadline", "type": "uint256" }
     ],
-    "name": "swap",
-    "outputs": [],
+    "name": "swapExactTokensForTokens",
+    "outputs": [
+      { "internalType": "uint256", "name": "amountOut", "type": "uint256" }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
+
+export const routerABI = [
+  {
+    inputs: [
+      { internalType: "bytes", name: "commands", type: "bytes" },
+      { internalType: "bytes[]", name: "inputs", type: "bytes[]" },
+      { internalType: "uint256", name: "deadline", type: "uint256" },
+    ],
+    name: "execute",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+]
 
 
 export async function signPermit({
