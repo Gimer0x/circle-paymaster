@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { sepolia } from "viem/chains";
+import { arbitrumSepolia, sepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { signPermit, swapRouterAbi } from "./permit.js";
 import { 
@@ -17,9 +17,11 @@ import {
         createBundlerClient,
         toSimple7702SmartAccount,
     } from "viem/account-abstraction";
+import { parse } from "dotenv";
 
 const chain = sepolia;
-const usdcAddress = process.env.USDC_ADDRESS;
+//const usdcAddress = process.env.USDC_ADDRESS;
+const usdcAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 const ownerPrivateKey = process.env.OWNER_PRIVATE_KEY;
 
 const client = createPublicClient({ chain, transport: http() });
@@ -31,6 +33,40 @@ const account = await toSimple7702SmartAccount({ client, owner });
 console.log(account.address);
 
 const paymasterAddress = process.env.PAYMASTER_V08_ADDRESS;
+
+// Debug: Check if paymaster address is provided
+if (!paymasterAddress) {
+  console.error("❌ PAYMASTER_V08_ADDRESS environment variable is not set");
+  process.exit(1);
+}
+
+console.log("Using paymaster address:", paymasterAddress);
+
+// Check if paymaster contract exists
+try {
+  const paymasterCode = await client.getBytecode({ address: paymasterAddress });
+  if (!paymasterCode || paymasterCode === '0x') {
+    console.error("❌ Paymaster contract is not deployed at address:", paymasterAddress);
+    console.error("Please deploy the paymaster contract or use a different address");
+    process.exit(1);
+  }
+  console.log("✅ Paymaster contract found at address:", paymasterAddress);
+  
+  // Let's also check if this is actually a paymaster contract by calling a basic function
+  try {
+    const paymasterContract = getContract({ 
+      client, 
+      address: paymasterAddress, 
+      abi: parseAbi(["function validatePaymasterUserOp((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes32,uint256,bytes,bytes),bytes32,uint256) view returns (uint256,uint256)"])
+    });
+    console.log("✅ Paymaster contract has validatePaymasterUserOp function");
+  } catch (error) {
+    console.warn("⚠️  Warning: Contract may not be a valid paymaster:", error.message);
+  }
+} catch (error) {
+  console.error("❌ Error checking paymaster contract:", error.message);
+  process.exit(1);
+}
 
 // Paymaster Object
 // Defines a paymaster object with a method to generate paymaster data.
@@ -56,7 +92,7 @@ const paymaster = {
     return {
       paymaster: paymasterAddress,
       paymasterData,
-      paymasterVerificationGasLimit: 200000n,
+      paymasterVerificationGasLimit: 2000000n,
       paymasterPostOpGasLimit: 150000n,
       isFinal: true,
     };
@@ -110,59 +146,65 @@ const authorization = await owner.signAuthorization({
     },
   ],
   authorization: authorization,
-});
-*/
+}); */
+
 
 // **************** 
 const hookData = "0x"; // empty bytes
-const hookContractAddress = "0x0000000000000000000000000000000000000000"; // zero address
+const hookContractAddress = "0x0515E5b569611Db2eC5C6E0CD6cFc79bf9aca080"; // not zero address
+// const hookContractAddress = "0x0000000000000000000000000000000000000000"; // zero address
 
-const token0 = "0x6adC6e83Ebe1b63F6a360f8fF1feF1F84A79291e";
-const token1 = "0x2d09B9a91132e2E394A7C43e0d7FE7a81Ed96e3B";
-//const swapRouterAddress = "0x00000000000044a361Ae3cAc094c9D1b14Eece97";
+const token0 = process.env.MXNB_ADDRESS;
+const token1 = process.env.USDC_ADDRESS;
 
-const swapRouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+const swapRouterAddress = process.env.SWAP_ROUTER_ADDRESS;
 
 const poolKey = {
   currency0: token0,
   currency1: token1,
-  fee: 500,
+  fee: 0x800000,
   tickSpacing: 10,
   hooks: hookContractAddress,
 };
 try {
-const hash = await bundlerClient.sendUserOperation({
-  account,
-  calls: [
-   {
-      to: token0,
-      abi: parseAbi(["function approve(address,uint)"]),
-      functionName: "approve",
-      args: [swapRouterAddress, maxUint256], // Approve token0
-    },
-    /*{
-      to: token1,
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [swapRouterAddress, maxUint256], // Approve token1
-    },*/
-    {
-      to: swapRouterAddress,
-      abi: swapRouterAbi, // You must define this ABI to include `swapExactTokensForTokens`
-      functionName: "swapExactTokensForTokens",
-      args: [
-        parseEther("0.5"),     // amountIn
-        0,                             // amountOutMin (be cautious!)
-        true,                          // zeroForOne
-        poolKey,
-        hookData,
-        0x0d2Dc4E9ebc1465E86Fdf6ab18377CB82eCf7548, // receiver
-        Math.floor(Date.now() / 1000) + 3600          // deadline
-      ],
-    },
-  ],
-  authorization: authorization,
-});
+  console.log("Starting swap operation...");
+  console.log("Token0 (MXNB):", token0);
+  console.log("Token1 (USDC):", token1);
+  console.log("Swap Router:", swapRouterAddress);
+  console.log("Pool Key:", poolKey);
+  
+  const hash = await bundlerClient.sendUserOperation({
+    account,
+    calls: [
+      /*{
+        to: token0,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [swapRouterAddress, maxUint256], // Approve token0
+      },
+      {
+        to: token1,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [swapRouterAddress, maxUint256], // Approve token1
+      }, */
+      {
+        to: swapRouterAddress,
+        abi: swapRouterAbi, // You must define this ABI to include `swapExactTokensForTokens`
+        functionName: "swapExactTokensForTokens",
+        args: [
+          parseEther("1"),     // amountIn - 1 token (assuming 6 decimals)
+          0,                             // amountOutMin (be cautious!)
+          true,                          // zeroForOne
+          poolKey,
+          hookData,
+          process.env.RECIPIENT_ADDRESS, // receiver
+          Math.floor(Date.now() / 1000) + 3600          // deadline
+        ],
+      },
+    ],
+    authorization: authorization,
+  }); 
 
 console.log("UserOperation hash", hash);
 
@@ -171,8 +213,7 @@ console.log("Transaction hash", receipt.receipt.transactionHash);
 
 } catch (error){
   console.error("❌ Error sending UserOperation:", error);
-}
-
+} 
 
 // We need to manually exit the process, since viem leaves some promises on the
 // event loop for features we're not using.
